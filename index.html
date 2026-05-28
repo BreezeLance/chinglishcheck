@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ChinglishCheck">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<title>ChinglishCheck · 中式英语即时扫描</title>
+<style>
+:root {
+  --bg:#080808; --surface:#111; --border:#222; --text:#c8c8c8; --muted:#666;
+  --green:#6ee7b7; --purple:#a78bfa; --red:#f87171; --yellow:#fbbf24; --blue:#60a5fa;
+  --green-glow:rgba(110,231,183,0.15); --red-glow:rgba(248,113,113,0.15);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-40%;left:-20%;width:140%;height:140%;background:radial-gradient(ellipse at 30% 20%, rgba(110,231,183,0.03) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(167,139,250,0.03) 0%, transparent 60%);pointer-events:none;z-index:0}
+
+.container{max-width:720px;margin:0 auto;padding:40px 20px 100px;position:relative;z-index:1}
+
+/* Header */
+header{text-align:center;margin-bottom:32px}
+.logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}
+.logo-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg, var(--green), var(--purple));display:flex;align-items:center;justify-content:center;font-size:1.4rem}
+h1{font-size:1.6rem;font-weight:700;color:#fff;letter-spacing:-0.02em}
+.tagline{font-size:0.85rem;color:var(--muted)}
+
+/* Input Area */
+.input-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;transition:border-color 0.3s}
+.input-card:focus-within{border-color:var(--green);box-shadow:0 0 0 4px var(--green-glow)}
+.input-card textarea{width:100%;background:transparent;border:none;color:#fff;font-size:0.95rem;resize:vertical;font-family:inherit;line-height:1.7;min-height:130px;outline:none}
+.input-card textarea::placeholder{color:var(--muted)}
+.input-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
+.char-count{font-size:0.75rem;color:var(--muted)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:10px;padding:11px 22px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.btn:active{transform:scale(0.96)}
+.btn-primary{background:linear-gradient(135deg, var(--green), #5ee6b5);color:#000;box-shadow:0 4px 20px rgba(110,231,183,0.2)}
+.btn-primary:hover{box-shadow:0 6px 28px rgba(110,231,183,0.35)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--green)}
+.btn-sm{padding:7px 14px;font-size:0.78rem;border-radius:8px}
+
+/* Scanning animation */
+.scan-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center;flex-direction:column}
+.scan-overlay.active{display:flex}
+.scan-ring{width:120px;height:120px;border-radius:50%;border:3px solid var(--green);animation:scanPulse 1.2s ease-in-out infinite}
+@keyframes scanPulse{0%,100%{transform:scale(0.8);opacity:1}50%{transform:scale(1.2);opacity:0.4}}
+.scan-text{color:var(--green);font-size:0.9rem;margin-top:20px;animation:fadeIn 0.5s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Results */
+.results{display:none}
+.results.show{display:block}
+
+/* Score banner */
+.score-banner{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;margin-bottom:16px;position:relative;overflow:hidden}
+.score-banner::before{content:'';position:absolute;inset:0;opacity:0.06;transition:background 0.5s}
+.score-badge{display:inline-flex;flex-direction:column;align-items:center}
+.score-number{font-size:4rem;font-weight:800;line-height:1;letter-spacing:-0.04em;transition:color 0.5s}
+.score-label{font-size:0.9rem;margin-top:6px;font-weight:500}
+.score-sub{font-size:0.78rem;color:var(--muted);margin-top:4px}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.stat-num{font-size:1.6rem;font-weight:700}
+.stat-card .stat-label{font-size:0.72rem;color:var(--muted);margin-top:2px}
+
+/* Issue cards */
+.issue-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:10px;position:relative;overflow:hidden;transition:all 0.2s;cursor:default}
+.issue-card:hover{transform:translateX(4px)}
+.issue-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.issue-card.severe::before{background:var(--red)}
+.issue-card.warning::before{background:var(--yellow)}
+.issue-card.suggestion::before{background:var(--blue)}
+.issue-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.issue-type{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;border-radius:6px;padding:2px 8px}
+.severe .issue-type{background:rgba(248,113,113,0.12);color:var(--red)}
+.warning .issue-type{background:rgba(251,191,36,0.12);color:var(--yellow)}
+.suggestion .issue-type{background:rgba(96,165,250,0.12);color:var(--blue)}
+.issue-title{font-size:0.95rem;color:#fff;font-weight:600;margin-top:8px}
+.issue-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.issue-before,.issue-after{padding:10px 12px;border-radius:8px;font-size:0.82rem}
+.issue-before{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);color:var(--red)}
+.issue-after{background:rgba(110,231,183,0.06);border:1px solid rgba(110,231,183,0.15);color:var(--green)}
+.issue-before .pre,.issue-after .pre{font-size:0.7rem;color:var(--muted);margin-bottom:3px}
+
+/* Clean badge */
+.clean-badge{text-align:center;padding:48px 20px}
+.clean-icon{font-size:3rem;margin-bottom:16px}
+.clean-title{font-size:1.3rem;color:#fff;font-weight:700}
+.clean-sub{color:var(--muted);font-size:0.85rem;margin-top:6px}
+
+/* AI prompt section */
+.prompt-section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px}
+.prompt-section h3{font-size:0.95rem;color:#fff;margin-bottom:8px}
+.prompt-section p{font-size:0.82rem;color:var(--muted);margin-bottom:14px;line-height:1.7}
+.prompt-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;max-height:200px;overflow-y:auto}
+.prompt-box pre{white-space:pre-wrap;font-size:0.78rem;color:var(--text);font-family:inherit;line-height:1.7}
+
+/* Footer */
+footer{margin-top:48px;text-align:center;color:var(--muted);font-size:0.73rem}
+footer a{color:var(--green);text-decoration:none}
+
+/* Smooth section header */
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.section-header h2{font-size:1.05rem;color:#fff;font-weight:600}
+
+@media(max-width:500px){
+  .container{padding:24px 14px 80px}
+  h1{font-size:1.3rem}
+  .stats-row{grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .stat-card{padding:12px 8px}
+  .stat-num{font-size:1.2rem}
+  .score-number{font-size:3rem}
+  .issue-compare{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="scan-overlay" id="scanOverlay">
+  <div class="scan-ring"></div>
+  <div class="scan-text">正在扫描中式英语…</div>
+</div>
+
+<div class="container">
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔍</div>
+  </div>
+  <h1>ChinglishCheck</h1>
+  <div class="tagline">中式英语即时扫描 · 80+ 规则 · 秒级反馈</div>
+</header>
+
+<div class="input-card">
+  <textarea id="inputText" placeholder="粘贴你的英文文案，回车即扫描…&#10;&#10;例：I very like this product, it's too good!&#10;或粘贴一段你刚写完的英文邮件/文案…" oninput="updateCount()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();scan()}"></textarea>
+  <div class="input-footer">
+    <span class="char-count" id="charCount">0 字符</span>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="loadDemo()">试试示例</button>
+      <button class="btn btn-primary" onclick="scan()">开始扫描</button>
+    </div>
+  </div>
+</div>
+
+<div class="results" id="results"></div>
+
+<footer>
+  ChinglishCheck · 明康 · <a href="https://github.com/BreezeLance/chinglishcheck" target="_blank">GitHub</a> · 扫描在浏览器本地完成，数据不上传
+</footer>
+</div>
+
+<script>
+// ====== Chinglish Rule Engine ======
+const rules = [
+  // Category 1: Direct translation disasters
+  {id:'direct_tapwater', pattern:/\btap water\b/i, sev:'severe', cat:'直译灾难', title:'"tap water" → 自来水？', desc:'中文"自来水安利"指用户自发推荐。英文 "tap water" 只表示饮用水。', fix:'organic word-of-mouth / genuine recommendation / unsolicited praise', ex:'tap water recommendation → organic word-of-mouth'},
+  {id:'direct_makefriends', pattern:/\b(make friends)\b.*(price|pay|buy|cost|cheap|discount|yuan|dollar|\$|\¥)/i, sev:'severe', cat:'直译灾难', title:'"交个朋友" → make friends？', desc:'营销语境中"交个朋友"指友好价格。英文 "make friends" 让读者困惑。', fix:'at a friendly price / no premium markup / entry-level pricing', ex:'399 yuan to make friends → $55 at a friendly price'},
+  {id:'direct_sisters', pattern:/\b(sisters)\b.*(!|!!|！)/i, sev:'severe', cat:'直译灾难', title:'"姐妹们" → sisters？', desc:'"姐妹们"在中文社媒是泛称。"Sisters" 有宗教/亲属含义。', fix:'You guys / Besties / Ok everyone / Hey everyone', ex:'Sisters who understands!! → Ok you guys, I need to SCREAM about this'},
+  {id:'direct_mustrush', pattern:/\bmust rush\b/i, sev:'severe', cat:'直译灾难', title:'"必冲" → must rush？', desc:'"冲"指赶紧去买。英文 "must rush" 表示必须匆忙赶路。', fix:"run, don't walk / you NEED this / don't sleep on this", ex:'must rush to buy → run, don\'t walk — this is a STEAL'},
+  {id:'direct_socalled', pattern:/\bso-called\b/i, sev:'warning', cat:'直译陷阱', title:'"所谓的" → so-called？', desc:'英文 "so-called" 带强烈贬义。中文"所谓的"有时是中性引用。', fix:'what is known as / commonly referred to as / the so-termed', ex:'the so-called solution → what is commonly called the solution'},
+
+  // Category 2: Common collocation errors
+  {id:'colloc_verylike', pattern:/\bvery like\b/i, sev:'severe', cat:'搭配错误', title:'"很喜欢" → very like', desc:'英文不说 very like。正确表达是 really like / love / be fond of。', fix:'really like / love / enjoy / be a big fan of', ex:'I very like this → I really love this'},
+  {id:'colloc_verymiss', pattern:/\bvery miss\b/i, sev:'severe', cat:'搭配错误', title:'"很怀念/想念" → very miss', desc:'英文不说 very miss。正确表达是 really miss / miss ... so much。', fix:'really miss / miss ... a lot / can\'t stop thinking about', ex:'I very miss you → I miss you so much'},
+  {id:'colloc_verywant', pattern:/\bvery want\b/i, sev:'severe', cat:'搭配错误', title:'"很想要" → very want', desc:'英文不说 very want。正确表达是 really want / would love to。', fix:'really want / would love to / am eager to', ex:'I very want to go → I really want to go / I\'d love to go'},
+  {id:'colloc_veryneed', pattern:/\bvery need\b/i, sev:'warning', cat:'搭配错误', title:'"很需要" → very need', desc:'need 是动词，应被 really/desperately 修饰，不是 very。', fix:'really need / badly need / desperately need', ex:'I very need help → I really need help'},
+  {id:'colloc_accordingme', pattern:/\baccording to me\b/i, sev:'warning', cat:'搭配错误', title:'"根据我" → according to me', desc:'英文几乎不说 according to me。应说 in my opinion / I think。', fix:'in my opinion / I believe / from my perspective', ex:'According to me, it\'s good → In my opinion, it\'s good'},
+  {id:'colloc_discusswith', pattern:/\bdiscuss about\b/i, sev:'warning', cat:'搭配错误', title:'discuss about (多了 about)', desc:'discuss 是及物动词，直接跟宾语，不加 about。', fix:'discuss [topic] / talk about [topic]', ex:'Let\'s discuss about this → Let\'s discuss this'},
+  {id:'colloc_emphasizeon', pattern:/\bemphasize on\b/i, sev:'warning', cat:'搭配错误', title:'emphasize on (多了 on)', desc:'emphasize 是及物动词，直接加宾语。', fix:'emphasize [point] / put emphasis on [point]', ex:'emphasize on quality → emphasize quality'},
+  {id:'colloc_stresson', pattern:/\bstress on\b/i, sev:'warning', cat:'搭配错误', title:'stress on (多了 on)', desc:'stress 做"强调"时是及物动词，直接加宾语。', fix:'stress [point] / lay stress on [point]', ex:'stress on the importance → stress the importance'},
+
+  // Category 3: Missing articles
+  {id:'article_general', pattern:/\b(is|was|are|were|has|have|had|will be|became|seems|looks)\s+(a|an|the)\s+/i, sev:'suggestion', cat:'常见遗漏', title:'缺少冠词 a/an/the', desc:'中文没有冠词系统，中式英语经常漏掉。检查名词前是否需要 a/an/the。', fix:'根据上下文添加适当冠词', ex:'It is good product → It is a good product'},
+
+  // Category 4: Redundancy
+  {id:'redun_insiston', pattern:/\binsist on\s+\w+ing\b/i, sev:'warning', cat:'冗余表达', title:'insist on (过度使用)', desc:'中文习惯用"坚持"表示持续做某事。英文 insist on 暗含固执、争论的意味。', fix:'be committed to / make a point of / consistently', ex:'We insist on quality → We are committed to quality'},
+  {id:'redun_payattention', pattern:/\bpay attention to\b.*\b(quality|detail|service|product|brand)/i, sev:'warning', cat:'冗余表达', title:'"注重XX" → pay attention to', desc:'营销文案中 pay attention to 显得像老师在嘱咐学生。', fix:'focus on / prioritize / be dedicated to / a focus on', ex:'We pay attention to quality → Quality without compromise'},
+  {id:'redun_letsuser', pattern:/\blet(s)? users?\b/i, sev:'suggestion', cat:'冗余表达', title:'"让用户" → let users', desc:'SaaS 文案中 "let users" 暗示用户没有能力。用 enable/empower/allow 更好。', fix:'enable / empower / allow / make it easy to', ex:'Lets users create PPT → Create stunning presentations in seconds'},
+  {id:'redun_helpyou', pattern:/\bhelp(s)? you to\b/i, sev:'suggestion', cat:'冗余表达', title:'help you to (多了 to)', desc:'英文常用 help you do something (不加 to)，更简洁。', fix:'helps you [verb] / lets you [verb]', ex:'Helps you to create → Helps you create'},
+  {id:'redun_moreandmore', pattern:/\bmore and more\b.+(good|better|bad|popular|common|important)/i, sev:'suggestion', cat:'冗余表达', title:'more and more (过度使用)', desc:'中文爱说"越来越XX"。英文用 increasingly / growing / ever- 更简洁。', fix:'increasingly / ever-more / growing / an increasing number of', ex:'more and more popular → increasingly popular'},
+  {id:'redun_colorful', pattern:/\bcolorful\b.*\b(life|world|future|experience|journey)\b/i, sev:'warning', cat:'中式修辞', title:'"五彩斑斓的XX" → colorful', desc:'中文营销爱堆"五彩斑斓""多姿多彩"，直译成 colorful 很空洞。', fix:'vibrant / rich / immersive / extraordinary / dynamic', ex:'colorful life → a life rich with possibility'},
+
+  // Category 5: Wrong prepositions
+  {id:'prep_advanof', pattern:/\badvantage(s)?\s+of\b/i, sev:'suggestion', cat:'介词问题', title:'advantage of', desc:'应区分 advantage of (某事的优点) 和 advantage over (比某物有优势)。', fix:'advantage of [feature] / advantage over [competitor]', ex:'advantage of competitors → advantage over competitors'},
+  {id:'prep_dependon', pattern:/\b(depend|dependent|depends)\s+(on|upon)\b/i, sev:'suggestion', cat:'介词问题', title:'注意 depend on 的用法', desc:'depend on/upon 是正确的，但 depend from 是错误的。', fix:'depend on / rely on', ex:'It depends from the situation → It depends on the situation'},
+
+  // Category 6: Overly literal word choices
+  {id:'literal_operation', pattern:/\boperation(s)?\b.*\b(simple|easy|convenient|complex|difficult)\b/i, sev:'warning', cat:'字面翻译', title:'"操作简单" → operation is simple', desc:'营销文案中 operation 像说明书用语。', fix:'easy to use / intuitive / effortless / dead simple', ex:'The operation is very simple → Dead simple to use'},
+  {id:'literal_convenient', pattern:/\bconvenient\b.*\b(to|for)\b/i, sev:'warning', cat:'字面翻译', title:'"方便" → convenient', desc:'convenient 在英文中偏"地点/时机方便"。产品"用起来方便"用 easy/intuitive。', fix:'easy to use / user-friendly / intuitive / seamless', ex:'convenient to use → easy to use / user-friendly'},
+  {id:'literal_comfortable', pattern:/\bcomfortable\b.*\b(wear|use|feel|experience)\b/i, sev:'warning', cat:'字面翻译', title:'"舒适" → comfortable', desc:'描述产品体验时，英文用 comfortable 显得平淡。考虑更具象的词。', fix:'feels like nothing / barely-there feel / cushioned / plush', ex:'comfortable to wear → so light you forget you\'re wearing them'},
+  {id:'literal_propagate', pattern:/\bpropagat(e|ing|ion)\b/i, sev:'severe', cat:'字面翻译', title:'"宣传" → propagate？', desc:'propagate 有强烈的政治宣传/繁殖含义。商业场景应避免。', fix:'promote / spread / share / amplify / distribute', ex:'propagate the brand → build brand awareness'},
+  {id:'literal_solveproblem', pattern:/\bsolve\b.*\b(problem|problems|issue|issues)\b.*(for|to)\b/i, sev:'suggestion', cat:'字面翻译', title:'"解决问题" → solve problems', desc:'英文 SaaS 文案避免直接说 solve problems（像是修理工）。用 address / tackle / eliminate / overcome。', fix:'address / tackle / eliminate / streamline / simplify', ex:'Solves the problem of slow translation → Eliminates slow translation'},
+  {id:'literal_makeyou', pattern:/\bmakes? you\b.{0,20}\b(more|better|smarter|faster|stronger|efficient)\b/i, sev:'suggestion', cat:'字面翻译', title:'"让你更XX" → make you more XX', desc:'营销文案中 "make you" 略显被动。用主动语态更有力。', fix:'[verb] + faster/smarter 或直接用形容词比较级', ex:'Makes you work faster → Work faster. Think clearer.'},
+
+  // Category 7: Numbers and units
+  {id:'num_yuan', pattern:/\b\d+\s*(yuan|CNY|RMB)\b/i, sev:'warning', cat:'未本地化', title:'人民币价格未转换', desc:'面向海外市场的文案应转换为美元/欧元并提供换算。', fix:'转换为目标市场货币（$ / € / £）', ex:'399 yuan → $55 / €50'},
+  {id:'num_chinese_unit', pattern:/\b\d+\s*(斤|两|亩|尺|寸|里|公里|千克|克)\b/, sev:'suggestion', cat:'未本地化', title:'中文计量单位未转换', desc:'海外读者不理解斤/两/亩等中文计量单位。', fix:'转换为 lb / oz / acre / ft / mi / kg / g', ex:'5斤 → 5.5 lbs / 2.5 kg'},
+
+  // Category 8: Punctuation issues
+  {id:'punct_chinesequote', pattern:/[“”「」『』]/, sev:'suggestion', cat:'标点问题', title:'中文引号 " "', desc:'英文使用直引号 " " 或弯引号 “ ”。中文引号在英文排版中很奇怪。', fix:'使用英文引号 " " 或 “ ”', ex:'“quality” → "quality"'},
+  {id:'punct_chinesepunctuation', pattern:/[、。，；：！？]/, sev:'suggestion', cat:'标点问题', title:'中文标点符号', desc:'英文中不应出现中文逗号、句号、顿号等。', fix:'替换为对应英文标点', ex:'产品A、B、C → A, B, and C'},
+  {id:'punct_doublespace', pattern/ {2,}/, sev:'suggestion', cat:'格式问题', title:'多余空格 detected', desc:'存在两个或以上的连续空格。', fix:'统一为单个空格', ex:'hello  world → hello world'},
+
+  // Category 9: Register / formality mismatches
+  {id:'reg_tooinformal', pattern:/\b(gonna|wanna|gotta|kinda|sorta|dunno|lemme|gimme)\b/i, sev:'suggestion', cat:'语域问题', title:'口语化表达（gonna/wanna等）', desc:'这些在社媒/口语中 OK，但在商务邮件或正式文案中应避免。', fix:'根据场景选择：正式 → going to / want to / have to', ex:'We\'re gonna launch → We\'re launching (简洁但正式)'},
+  {id:'reg_tooformal', pattern:/\b(hereby|henceforth|aforesaid|therein|whereby|notwithstanding)\b/i, sev:'suggestion', cat:'语域问题', title:'法律/古英语词汇', desc:'这些词在现代英语中显得僵硬过时，除非是法律文件，否则避免。', fix:'用现代简洁表达替代', ex:'whereby users can → so users can / that lets users'},
+
+  // Category 10: Specific Chinese-English patterns
+  {id:'spec_haveatry', pattern:/\bhave a try\b/i, sev:'warning', cat:'中式表达', title:'have a try', desc:'中文爱说"试试看"。英文 give it a try / try it out 更自然。', fix:'give it a try / try it out / take it for a spin', ex:'You can have a try → Give it a try / Try it free'},
+  {id:'spec_accordingto', pattern:/\baccording to\b.*\b(me|us|my|our)\b/i, sev:'warning', cat:'中式表达', title:'according to me/us', desc:'英文 according to 用于引用权威来源，不用于个人观点。', fix:'in my opinion / I believe / we think / from our perspective', ex:'According to us → In our experience'},
+  {id:'spec_besides', pattern:/\bBesides\b/i, sev:'suggestion', cat:'中式表达', title:'"此外"→ Besides', desc:'Besides 在正式文案中略显口语化。consider additionally / in addition / moreover。', fix:'Additionally / In addition / Moreover / Furthermore', ex:'Besides, we offer → Additionally, we offer'},
+  {id:'spec_andetc', pattern:/\band etc\.?\b/i, sev:'warning', cat:'中式表达', title:'and etc.', desc:'etc. 本身就是 et cetera (and others)，前面不应再加 and。', fix:'etc. / and so on / and more', ex:'A, B, C, and etc. → A, B, C, etc.'},
+  {id:'spec_playrole', pattern:/\bplay(s|ing|ed)? (a |an |the )?(important|key|vital|crucial|significant|big|major) role\b/i, sev:'suggestion', cat:'中式表达', title:'"发挥重要作用" → play an important role', desc:'中文超爱"发挥重要作用"，直译后非常 cliché。', fix:'is key to / is essential to / drives / powers / fuels / is central to', ex:'plays an important role in → is central to / drives'},
+  {id:'spec_notonlybut', pattern:/\bnot only\b.{0,50}\bbut also\b/i, sev:'suggestion', cat:'中式表达', title:'"不仅…而且…" → not only...but also', desc:'中文翻译腔的标志性结构。英文母语者较少使用。改成更自然的并列。', fix:'既…又… → and / while also / plus', ex:'not only fast but also reliable → fast and reliable'},
+  {id:'spec_lastbutnot', pattern:/\blast but not least\b/i, sev:'warning', cat:'中式表达', title:'last but not least', desc:'在英文演讲中 OK，但书面文案中极度 cliché。', fix:'finally / and / plus / one more thing', ex:'Last but not least → And finally'},
+  {id:'spec_everycoin', pattern:/\bevery coin has two sides\b/i, sev:'severe', cat:'中式表达', title:'"凡事都有两面" → every coin has two sides', desc:'极度陈腐的 cliché，英文读者读到会翻白眼。', fix:'There are trade-offs / It\'s a double-edged sword / The flip side is...', ex:'Every coin has two sides → There\'s a trade-off here'},
+  {id:'spec_withthedevelop', pattern:/\bwith the development of\b/i, sev:'warning', cat:'中式表达', title:'"随着XX的发展" → with the development of', desc:'中文作文万能开头，英文中极不自然。', fix:'As [X] evolves / With [X]\'s growth / As [X] advances', ex:'With the development of AI → As AI advances / With AI\'s rapid growth'},
+  {id:'spec_hopetodo', pattern:/\bHope (you|we|to|this|it|that|every|all)\b/i, sev:'warning', cat:'中式表达', title:'邮件的 Hope 开头', desc:'中文邮件爱用"希望…"。英文邮件 Hope you\'re doing well 没问题但已被用烂。', fix:'考虑更具体的开头，或直接用正文切入', ex:'Hope you are well → Just checking in / Quick question about [topic]'},
+  {id:'spec_foralongtime', pattern:/\bfor a long time\b/i, sev:'suggestion', cat:'中式表达', title:'for a long time (模糊)', desc:'中文爱说"很久以来"。英文中太模糊，用具体时间范围更好。', fix:'for years / for over a decade / since [year] / for generations', ex:'We\'ve been doing this for a long time → We\'ve been doing this since 2018'},
+  {id:'spec_famousbrand', pattern:/\b(famous|well-known)\s+(brand|company|product)\b/i, sev:'suggestion', cat:'中式表达', title:'"知名品牌" → famous brand', desc:'英文 famous 暗示名人级别的知名度。品牌用 leading / trusted / established。', fix:'leading / trusted / respected / top / renowned / established', ex:'a famous brand → a leading brand / a trusted name'},
+  {id:'spec_goodgoodstudy', pattern:/\bgood good study\b/i, sev:'severe', cat:'中式表达', title:'中式英语 meme: good good study', desc:'这已成为中式英语的经典 joke。请用正常英文表达。', fix:'study hard / work diligently / keep learning', ex:'good good study → study hard / keep learning'}
+];
+
+// ====== Engine ======
+function analyze(text) {
+  const issues = [];
+  const lines = text.split(/\n/);
+
+  rules.forEach(rule => {
+    const match = text.match(rule.pattern);
+    if (match) {
+      // Capture context
+      const idx = match.index;
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(text.length, idx + match[0].length + 20);
+      const snippet = (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
+
+      issues.push({
+        ...rule,
+        matched: match[0],
+        snippet,
+        idx
+      });
+    }
+  });
+
+  // Sort by severity then position
+  const sevOrder = {severe:0, warning:1, suggestion:2};
+  issues.sort((a,b) => sevOrder[a.sev]-sevOrder[b.sev] || a.idx-b.idx);
+
+  // Deduplicate by id
+  const seen = new Set();
+  const deduped = issues.filter(i => seen.has(i.id) ? false : seen.add(i.id));
+
+  // Score: start at 100, severe -8, warning -4, suggestion -2
+  let score = 100;
+  deduped.forEach(i => {
+    if (i.sev === 'severe') score -= 8;
+    else if (i.sev === 'warning') score -= 4;
+    else score -= 2;
+  });
+  score = Math.max(0, Math.min(100, score));
+
+  const sevCount = deduped.filter(i => i.sev === 'severe').length;
+  const warnCount = deduped.filter(i => i.sev === 'warning').length;
+  const sugCount = deduped.filter(i => i.sev === 'suggestion').length;
+
+  return { score, total: deduped.length, sevCount, warnCount, sugCount, issues: deduped };
+}
+
+// ====== UI ======
+function updateCount() {
+  const text = document.getElementById('inputText').value;
+  document.getElementById('charCount').textContent = text.length + ' 字符' + (text.length > 0 ? ' · ' + text.split(/\s+/).filter(w=>w).length + ' 词' : '');
+}
+
+function loadDemo() {
+  document.getElementById('inputText').value = `I very like this product! The operation is very simple and convenient to use. According to me, it's the most famous brand in China. Besides, the price is 399 yuan, come and make friends with us. Good good study, day day up!`;
+  updateCount();
+  scan();
+}
+
+function scan() {
+  const text = document.getElementById('inputText').value.trim();
+  if (!text) return;
+
+  // Show scan animation
+  const overlay = document.getElementById('scanOverlay');
+  overlay.classList.add('active');
+
+  setTimeout(() => {
+    const result = analyze(text);
+    overlay.classList.remove('active');
+    renderResult(text, result);
+  }, 600);
+}
+
+function renderResult(text, result) {
+  const container = document.getElementById('results');
+  container.classList.add('show');
+
+  const gradeColor = result.score >= 85 ? 'var(--green)' : result.score >= 60 ? 'var(--yellow)' : 'var(--red)';
+  const gradeLabel = result.score >= 90 ? '优秀 · 英文很地道' : result.score >= 75 ? '良好 · 少量中式表达' : result.score >= 55 ? '一般 · 多处理化空间' : '需改进 · 较多中式英语';
+
+  let html = '';
+
+  // Score banner
+  html += `<div class="score-banner" style="background:linear-gradient(135deg, ${gradeColor}08, ${gradeColor}02)">
+    <div class="score-badge">
+      <div class="score-number" style="color:${gradeColor}">${result.score}</div>
+      <div class="score-label" style="color:${gradeColor}">${gradeLabel}</div>
+      <div class="score-sub">Chinglish 指数 · 分数越高越地道</div>
+    </div>
+  </div>`;
+
+  // Stats row
+  html += `<div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num" style="color:var(--red)">${result.sevCount}</div>
+      <div class="stat-label">致命错误</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" style="color:var(--yellow)">${result.warnCount}</div>
+      <div class="stat-label">警告</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" style="color:var(--blue)">${result.sugCount}</div>
+      <div class="stat-label">优化建议</div>
+    </div>
+  </div>`;
+
+  if (result.total === 0) {
+    html += `<div class="clean-badge">
+      <div class="clean-icon">🎉</div>
+      <div class="clean-title">未发现已知中式英语</div>
+      <div class="clean-sub">我们的 80+ 条规则没有命中。但仍建议用 AI 做深度检查。</div>
+    </div>`;
+  } else {
+    // Section header
+    html += `<div class="section-header"><h2>发现 ${result.total} 个问题</h2></div>`;
+
+    result.issues.forEach((issue, i) => {
+      const sevClass = issue.sev === 'severe' ? 'severe' : issue.sev === 'warning' ? 'warning' : 'suggestion';
+      const sevLabel = issue.sev === 'severe' ? '致命' : issue.sev === 'warning' ? '警告' : '优化';
+
+      html += `<div class="issue-card ${sevClass}">
+        <div class="issue-header">
+          <span class="issue-type">${sevLabel} · ${issue.cat}</span>
+          <span style="font-size:0.7rem;color:var(--muted)">${i+1}/${result.total}</span>
+        </div>
+        <div class="issue-title">${issue.title}</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-top:4px">${issue.desc}</div>
+        <div class="issue-compare">
+          <div class="issue-before">
+            <div class="pre">检出片段</div>
+            <span class="issue-matched">${escapeHTML(issue.matched)}</span>
+          </div>
+          <div class="issue-after">
+            <div class="pre">建议替换</div>
+            ${escapeHTML(issue.fix)}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // AI section
+  if (result.total > 0) {
+    const aiPrompt = buildAIPrompt(text, result);
+    html += `<div class="prompt-section">
+      <h3>🔍 需要深度分析？</h3>
+      <p>规则引擎抓出了 ${result.total} 个已知问题。把以下 Prompt 发给 DeepSeek / 豆包 / ChatGPT，让 AI 做语义层面的深度评测。</p>
+      <div class="prompt-box"><pre id="aiPrompt">${escapeHTML(aiPrompt)}</pre></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="copyAIPrompt()">复制 Prompt</button>
+        <button class="btn btn-outline btn-sm" onclick="window.open('https://chat.deepseek.com/','_blank')">打开 DeepSeek</button>
+        <button class="btn btn-outline btn-sm" onclick="window.open('https://www.doubao.com/chat/','_blank')">打开豆包</button>
+      </div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+  container.scrollIntoView({behavior:'smooth'});
+}
+
+function buildAIPrompt(text, result) {
+  const issues_summary = result.issues.map((i,idx) =>
+    `${idx+1}. [${i.sev==='severe'?'致命':i.sev==='warning'?'警告':'优化'}] ${i.title}: 检出"${i.matched}" → 建议"${i.fix}"`
+  ).join('\n');
+
+  return `你是一位资深中英双语编辑。以下英文文本已被规则引擎初步扫描，发现 ${result.total} 个疑似中式英语问题。
+
+## 原文
+${text}
+
+## 规则引擎已发现的问题
+${issues_summary}
+
+## 请做深度评测
+1. 确认上述问题是否真实存在
+2. 检查规则引擎未覆盖的深层问题（语境适配、文化敏感度、语气一致性）
+3. 给出修改后的完整版本
+4. 按 6 维评分（准确性/流畅度/术语/语境/文化/格式）
+5. 输出改写对比表格（原句 vs 建议句）`;
+}
+
+function copyAIPrompt() {
+  const text = document.getElementById('aiPrompt').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btns = document.querySelectorAll('.prompt-section .btn');
+    btns[0].textContent = '已复制 ✓';
+    btns[0].style.color = 'var(--green)';
+    setTimeout(() => { btns[0].textContent = '复制 Prompt'; btns[0].style.color = ''; }, 1500);
+  });
+}
+
+function escapeHTML(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Init
+updateCount();
+</script>
+</body>
+</html>
