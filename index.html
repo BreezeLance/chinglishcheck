@@ -204,7 +204,7 @@ const rules = [
   // Category 8: Punctuation issues
   {id:'punct_chinesequote', pattern:/[“”「」『』]/, sev:'suggestion', cat:'标点问题', title:'中文引号 " "', desc:'英文使用直引号 " " 或弯引号 “ ”。中文引号在英文排版中很奇怪。', fix:'使用英文引号 " " 或 “ ”', ex:'“quality” → "quality"'},
   {id:'punct_chinesepunctuation', pattern:/[、。，；：！？]/, sev:'suggestion', cat:'标点问题', title:'中文标点符号', desc:'英文中不应出现中文逗号、句号、顿号等。', fix:'替换为对应英文标点', ex:'产品A、B、C → A, B, and C'},
-  {id:'punct_doublespace', pattern/ {2,}/, sev:'suggestion', cat:'格式问题', title:'多余空格 detected', desc:'存在两个或以上的连续空格。', fix:'统一为单个空格', ex:'hello  world → hello world'},
+  {id:'punct_doublespace', pattern: / {2,}/, sev:'suggestion', cat:'格式问题', title:'多余空格 detected', desc:'存在两个或以上的连续空格。', fix:'统一为单个空格', ex:'hello  world → hello world'},
 
   // Category 9: Register / formality mismatches
   {id:'reg_tooinformal', pattern:/\b(gonna|wanna|gotta|kinda|sorta|dunno|lemme|gimme)\b/i, sev:'suggestion', cat:'语域问题', title:'口语化表达（gonna/wanna等）', desc:'这些在社媒/口语中 OK，但在商务邮件或正式文案中应避免。', fix:'根据场景选择：正式 → going to / want to / have to', ex:'We\'re gonna launch → We\'re launching (简洁但正式)'},
